@@ -334,7 +334,7 @@
     @media (max-width: 700px) {
       .page { padding: 0; }
       .stage-frame { width: 100vw; height: 100dvh; border-radius: 0; box-shadow: none; }
-      #startMenu { display: block; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+      #startMenu:not([hidden]) { display: block; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
       .menu-card { height: auto; min-height: 100dvh; max-height: none; overflow: visible; }
       .menu-secondary { width: 44px; padding: 7px; font-size: 20px; }
       .menu-secondary .sound-label { display: none; }
