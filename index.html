@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="description" content="Мавпячий Стрибок — весела математична гра для дітей">
+  <title>Мавпячий Стрибок · математика у грі</title>
+  <style>
+    :root {
+      --ink: #172b3a;
+      --muted: #60717b;
+      --paper: #fffdf7;
+      --coral: #ed6a5a;
+      --coral-dark: #c95049;
+      --mint: #bce8ce;
+      --leaf: #4d9b76;
+      --leaf-dark: #2e7359;
+      --sun: #ffc857;
+      --sky: #d9f1f2;
+      --line: rgba(23, 43, 58, .14);
+      --shadow: 0 16px 40px rgba(45, 74, 80, .16);
+      --safe-t: env(safe-area-inset-top, 0px);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --start-platform-offset: 48px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      min-width: 300px;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(20, 45, 30, .78), rgba(18, 44, 34, .85)),
+        url("assets/background.jpg") center/cover no-repeat fixed;
+      font-family: Arial, Helvetica, sans-serif;
+      overscroll-behavior: none;
+    }
+
+    button { font: inherit; }
+    img { -webkit-user-drag: none; user-select: none; pointer-events: none; }
+
+    /* ---------- page + stage frame ---------- */
+    .page {
+      display: flex;
+      min-height: 100dvh;
+      align-items: center;
+      justify-content: center;
+      padding: 0 clamp(0px, 2vw, 26px);
+    }
+
+    .stage-frame {
+      position: relative;
+      width: min(460px, 100vw);
+      height: min(900px, 100dvh);
+      overflow: hidden;
+      background: #eef6e9;
+      border-radius: 28px;
+      box-shadow: 0 30px 70px rgba(5, 20, 12, .5);
+    }
+
+    .topbar {
+      position: absolute;
+      top: calc(10px + var(--safe-t));
+      left: 12px;
+      right: 12px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .topbar > * { pointer-events: auto; }
+    .brand { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; border-radius: 99px; background: rgba(255,253,247,.9); box-shadow: var(--shadow); }
+    .brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border: 2px solid var(--ink); border-radius: 11px 11px 11px 4px; background: var(--sun); font-size: 17px; transform: rotate(-6deg); }
+    .brand strong { font: 700 13px/1 Arial, Helvetica, sans-serif; letter-spacing: -.2px; }
+    .toolbar { display: flex; align-items: center; gap: 6px; }
+    .help, .sound-toggle {
+      min-width: 34px; min-height: 34px;
+      padding: 6px 10px;
+      border: 0;
+      border-radius: 99px;
+      color: var(--ink);
+      background: rgba(255,253,247,.9);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      font-size: 13px; font-weight: 700;
+    }
+    .sound-toggle { padding: 6px; font-size: 15px; }
+    .sound-toggle[aria-pressed="false"] { opacity: .6; }
+    body.playing .topbar { display: none; }
+
+    /* ---------- jungle / game world ---------- */
+    .jungle {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      touch-action: none;
+      background:
+        radial-gradient(ellipse at 50% 34%, rgba(103,152,83,.55), transparent 33%),
+        radial-gradient(ellipse at 50% 98%, #315338 0 28%, transparent 29%),
+        linear-gradient(180deg, #91d0c0 0 18%, #5d9c69 36%, #35583c 61%, #1f392c 100%);
+    }
+    .camera-world { position: absolute; left: 0; right: 0; top: 0; z-index: 1; height: 9000px; transform: translateY(-7800px); transition: transform .6s cubic-bezier(.2,.8,.25,1); }
+    .scrolling-background { position: absolute; left: 0; top: -900px; z-index: 0; width: 100%; height: 11000px; background: radial-gradient(ellipse at 50% 27%, rgba(113,169,91,.62), transparent 23%), radial-gradient(ellipse at 50% 79%, #315338 0 24%, transparent 25%), linear-gradient(180deg, #82c8bb 0 21%, #4c8e5e 40%, #31583d 66%, #1b3429 100%); }
+    .scrolling-background::before { position: absolute; inset: 0; content: ""; background: radial-gradient(ellipse at 8% 1%, #1b5a3a 0 11%, transparent 12%), radial-gradient(ellipse at 92% 1%, #246542 0 14%, transparent 15%), repeating-linear-gradient(115deg, transparent 0 52px, rgba(25,72,43,.28) 53px 58px, transparent 59px 102px); opacity: .86; }
+    .scrolling-background::after { position: absolute; inset: 0; content: ""; background-image: radial-gradient(circle, rgba(205,236,166,.2) 0 2px, transparent 2.5px), radial-gradient(circle, rgba(10,43,27,.38) 0 3px, transparent 3.5px); background-size: 47px 53px, 71px 67px; opacity: .48; }
+
+    .leaf { position: absolute; width: 58px; height: 30px; border: 3px solid var(--leaf-dark); border-radius: 100% 0 100% 0; background: var(--leaf); opacity: .9; }
+    .leaf-a { top: 60px; left: 8%; transform: rotate(-34deg); } .leaf-b { top: 140px; right: 9%; transform: rotate(30deg) scaleX(-1); }
+    .leaf-c { top: 640px; left: 6%; transform: rotate(-26deg); } .leaf-d { top: 720px; right: 7%; transform: rotate(30deg) scaleX(-1); }
+    .leaf-e { top: 1180px; left: 10%; transform: rotate(-20deg); } .leaf-f { top: 1260px; right: 8%; transform: rotate(24deg) scaleX(-1); }
+
+    /* ---------- platforms (answers live here) ---------- */
+    .platform-base {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateX(-50%);
+      border: 3px solid #203a24;
+      border-radius: 10px;
+      background: linear-gradient(#7da84c 0 46%, #d79b58 47% 100%);
+      box-shadow: 0 6px 0 rgba(11, 25, 17, .45);
+      color: var(--ink);
+      font: 800 clamp(38px, 12vw, 52px) Arial, Helvetica, sans-serif;
+      text-align: center;
+      line-height: 1;
+    }
+    .choice-platform {
+      width: clamp(124px, 31vw, 148px);
+      height: clamp(108px, 27vw, 132px);
+      z-index: 4;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform .12s, filter .15s, opacity .3s;
+      opacity: 0;
+      animation: dropIn .38s ease forwards;
+    }
+    .choice-platform:active { transform: translateX(-50%) translateY(2px); }
+    .choice-platform.disabled, .choice-platform.past, .choice-platform.future { pointer-events: none; }
+    .choice-platform.past { opacity: .72; filter: saturate(.55); }
+    .choice-platform.future { opacity: .9; }
+    .choice-platform.correct { background: linear-gradient(#a4e3ae 0 46%, #d79b58 47% 100%); border-color: var(--leaf-dark); }
+    .choice-platform.wrong { background: linear-gradient(#f3a297 0 46%, #d79b58 47% 100%); border-color: var(--coral-dark); animation: dropIn .38s ease forwards, shake .3s .1s; }
+    .choice-platform.variant-0 { border-radius: 10px; }
+    .choice-platform.variant-1 { border-radius: 10px; background: linear-gradient(#86b85a 0 46%, #c98f50 47% 100%); }
+    .choice-platform.variant-2 { border-radius: 10px; background: linear-gradient(#719c49 0 46%, #dfa361 47% 100%); }
+    .choice-platform.variant-3 { border-radius: 10px; background: linear-gradient(#94bd61 0 46%, #bd8149 47% 100%); }
+    .starting-platform {
+      position: absolute; left: 50%; bottom: calc(4% + var(--start-platform-offset)); z-index: 4;
+      width: clamp(108px, 28vw, 128px); height: clamp(24px, 5vw, 28px);
+      transform: translateX(-50%); border: 3px solid #203a24; border-radius: 10px;
+      background: linear-gradient(#6f9f46 0 46%, #9d693e 47% 100%);
+      box-shadow: 0 6px 0 rgba(11,25,17,.45);
+      pointer-events: none;
+    }
+    @keyframes dropIn { from { opacity: 0; transform: translateX(-50%) translateY(-18px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    @keyframes shake { 25% { transform: translateX(-50%) translateX(-6px); } 75% { transform: translateX(-50%) translateX(6px); } }
+    .choice-platform::after {
+      position: absolute; left: 6px; right: 6px; top: 2px; height: 4px; content: "";
+      background: radial-gradient(circle at 3px 2px, #b8d46b 0 2px, transparent 2.5px) 0 0 / 16px 4px repeat-x;
+    }
+    .bot {
+      position: absolute; z-index: 6; width: clamp(76px, 22vw, 108px); height: clamp(88px, 25vw, 118px);
+      pointer-events: none; transform: translateX(-50%);
+      animation: botIdleBob 1.9s ease-in-out infinite;
+      filter: drop-shadow(0 6px 3px rgba(8, 20, 12, .42));
+      transition: opacity .3s ease, left .5s cubic-bezier(.2,.9,.3,1), bottom .5s cubic-bezier(.2,.9,.3,1);
+    }
+    .bot-avatar {
+      display: grid; place-items: center; width: 62px; height: 62px; margin: 0 auto;
+      border: 3px solid rgba(23,43,58,.72); border-radius: 50%;
+      background: var(--sun); font-size: 36px;
+    }
+    .bot-name {
+      display: block; margin-top: 2px; padding: 4px 6px; border-radius: 7px;
+      color: white; background: rgba(23,43,58,.78); font-size: 10px;
+      font-weight: 800; text-align: center; white-space: nowrap;
+    }
+    .bot-a .bot-avatar { background: #f4a261; }
+    .bot-b .bot-avatar { background: #9bd6c1; }
+    .bot-c .bot-avatar { background: #f5b7c8; }
+    .bot-a { animation-delay: 0s; }
+    .bot-b { animation-delay: .35s; }
+    .bot-c { animation-delay: .7s; }
+    .bot.waiting { opacity: 0; }
+    .bot.jump { animation: botJump .68s cubic-bezier(.24,.8,.35,1); }
+    @keyframes botJump {
+      0% { transform: translateX(-50%) translateY(13px) rotate(-3deg); }
+      45% { transform: translateX(-50%) translateY(-34px) rotate(4deg); }
+      100% { transform: translateX(-50%) translateY(0) rotate(0); }
+    }
+    @keyframes botIdleBob {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(-6px); }
+    }
+
+    /* ---------- monkey (sprite-based, no hand-drawn fallback) ---------- */
+    .monkey {
+      position: absolute; left: 50%; bottom: 4%; z-index: 8;
+      width: clamp(84px, 23vw, 120px); height: clamp(88px, 24vw, 126px);
+      filter: drop-shadow(0 8px 3px rgba(8,20,12,.5));
+      transform: translateX(-50%);
+      transition: bottom .5s cubic-bezier(.2,.9,.3,1), left .5s cubic-bezier(.2,.9,.3,1);
+    }
+    .monkey-sprite {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: contain; object-position: bottom center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .18s ease;
+      transform-origin: bottom center;
+    }
+    .monkey-sprite.active { opacity: 1; }
+    .monkey-sprite.monkey-sit.active { animation: idleBob 1.7s ease-in-out infinite; }
+    .monkey.jump { animation: jumpHop .68s cubic-bezier(.24,.8,.35,1); }
+    .monkey-sprite.monkey-jump.active { animation: jumpSquash .68s cubic-bezier(.24,.8,.35,1); }
+    @keyframes idleBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    @keyframes jumpHop { 0% { transform: translateX(-50%) translateY(16px) rotate(-3deg); } 45% { transform: translateX(-50%) translateY(-42px) rotate(4deg); } 100% { transform: translateX(-50%) translateY(0) rotate(0); } }
+    @keyframes jumpSquash { 0% { transform: scale(.94, 1.06); } 45% { transform: scale(1.05, .95); } 75% { transform: scale(.98, 1.02); } 100% { transform: scale(1, 1); } }
+
+    /* ---------- HUD (small floating windows) ---------- */
+    .hud-stats {
+      position: absolute;
+      bottom: var(--safe-b);
+      left: 50%;
+      width: min(280px, calc(100% - 28px));
+      transform: translateX(-50%);
+      z-index: 12;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    body.playing .hud-stats { display: flex; }
+    .hud-chip {
+      display: flex; align-items: center; gap: 4px;
+      padding: 7px 12px;
+      border-radius: 99px;
+      background: rgba(255,253,247,.92);
+      box-shadow: var(--shadow);
+      font-size: 15px; font-weight: 800; color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .hud-equation {
+      position: absolute;
+      bottom: calc(52px + var(--safe-b));
+      left: 50%;
+      width: min(280px, calc(100% - 28px));
+      z-index: 12;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 10px 18px 12px;
+      border-radius: 18px;
+      background: rgba(255,253,247,.95);
+      box-shadow: var(--shadow);
+      text-align: center;
+      transform: translateX(-50%);
+    }
+    body.playing .hud-equation { display: flex; }
+    .equation { font: 700 clamp(50px, 15vw, 70px)/1 Arial, Helvetica, sans-serif; letter-spacing: .5px; }
+
+    .feedback-toast {
+      position: absolute; left: 50%; z-index: 15;
+      bottom: calc(150px + var(--safe-b));
+      padding: 7px 14px;
+      border-radius: 99px;
+      background: rgba(23,43,58,.85);
+      color: #fff; font-size: 12.5px; font-weight: 700;
+      transform: translate(-50%, -8px);
+      opacity: 0; pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      white-space: nowrap;
+    }
+    .feedback-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    .confetti-piece {
+      position: absolute; top: -20px; z-index: 25; font-size: 20px;
+      pointer-events: none; will-change: transform, opacity;
+      animation: confettiFall linear forwards;
+    }
+    @keyframes confettiFall {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(420px) rotate(360deg); opacity: 0; }
+    }
+
+    /* ---------- overlays / modals ---------- */
+    .overlay { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 0; background: rgba(10,20,14,.5); }
+    .overlay[hidden] { display: none; }
+    #endModal.game-over { background: rgba(238,246,233,.98); }
+    body.game-over .stage-frame { visibility: hidden; }
+    .modal { width: min(400px, calc(100% - 32px)); padding: 28px; border: 2px solid var(--ink); border-radius: 25px; background: var(--paper); box-shadow: 0 24px 80px rgba(23,43,58,.3); text-align: center; }
+    .modal .emoji { font-size: 42px; }
+    .modal h2 { margin: 10px 0 8px; font: 700 29px Arial, Helvetica, sans-serif; }
+    .modal p { color: var(--muted); line-height: 1.5; font-size: 16px; }
+
+    .menu-card { position: relative; width: 100%; height: 100dvh; max-height: 100dvh; padding: calc(12px + var(--safe-t)) 20px calc(10px + var(--safe-b)); overflow: hidden; border-radius: 0; background: radial-gradient(circle at 50% 0, rgba(255,200,87,.2), transparent 40%), rgba(255,253,247,.97); text-align: center; }
+    .menu-monkey { display: block; width: clamp(86px, 18vw, 112px); height: clamp(92px, 20vw, 120px); object-fit: contain; margin: 0 auto 2px; }
+    .menu-card h2 { margin: 0; font: 700 clamp(30px, 8vw, 42px)/.95 Arial, Helvetica, sans-serif; letter-spacing: -.5px; }
+    .menu-card p { margin: 6px auto 10px; max-width: 420px; color: var(--muted); font-size: clamp(14px, 3.8vw, 17px); line-height: 1.3; }
+    .lobby-title { margin: 7px 0 5px; font-size: 19px; text-align: left; }
+    .lobby-players { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .lobby-player { padding: 9px 4px 7px; border: 2px solid var(--line); border-radius: 13px; background: #f1f7ed; }
+    .lobby-player strong { display: block; margin-top: 3px; font-size: 14px; }
+    .lobby-avatar { display: grid; place-items: center; width: 42px; height: 42px; margin: auto; border-radius: 50%; font-size: 25px; background: #f4a261; }
+    .lobby-player:nth-child(2) .lobby-avatar { background: #9bd6c1; }
+    .lobby-player:nth-child(3) .lobby-avatar { background: #f5b7c8; }
+    .countdown { min-height: 24px; margin: 5px 0 0; color: var(--coral-dark); font-size: 20px; font-weight: 900; }
+    .mode-title { margin: 9px 0 5px; font-size: clamp(19px, 5vw, 22px); text-align: left; }
+    .mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .mode-button { min-height: 62px; padding: 7px 5px; border: 3px solid transparent; border-radius: 13px; color: var(--ink); cursor: pointer; font-weight: 800; touch-action: manipulation; }
+    .mode-button span { display: block; margin-bottom: 2px; font-size: clamp(25px, 7vw, 31px); }
+    .mode-button small { color: var(--ink); font-size: clamp(14px, 3.6vw, 16px); }
+    .mode-button:hover, .mode-button.selected { border-color: var(--ink); box-shadow: 0 4px 0 rgba(23,43,58,.2); }
+    .mode-button[data-mode="addition"] { background: #c9efd2; } .mode-button[data-mode="subtraction"] { background: #ffe2a6; } .mode-button[data-mode="multiplication"] { background: #ffd1c9; } .mode-button[data-mode="division"] { background: #c8e5f4; }
+    .rules { margin: 9px 0; padding: 10px 12px; border-radius: 13px; color: var(--ink); background: #eef6e9; text-align: left; font-size: clamp(13px, 3.5vw, 15px); line-height: 1.3; }
+    .rules strong { display: block; margin-bottom: 5px; font-size: 1.12em; font-weight: 900; }
+    .mode-note { min-height: 16px; margin: 4px 0 0 !important; color: var(--coral-dark) !important; font-size: clamp(13px, 3.4vw, 15px); }
+    .menu-actions { display: grid; gap: 8px; margin-top: 4px; }
+    .primary { width: 100%; min-height: 52px; padding: 13px 18px; border: 0; border-radius: 15px; color: white; background: var(--coral); cursor: pointer; font-weight: 800; font-size: 18px; box-shadow: 0 6px 0 var(--coral-dark); transition: transform .15s, box-shadow .15s; touch-action: manipulation; }
+    .primary:active { transform: translateY(3px); box-shadow: 0 3px 0 var(--coral-dark); }
+    .menu-secondary { position: absolute; top: calc(12px + var(--safe-t)); right: 20px; min-height: 44px; padding: 9px 13px; border: 2px solid var(--line); border-radius: 15px; color: var(--ink); background: white; cursor: pointer; font-size: 15px; font-weight: 800; touch-action: manipulation; }
+
+    .win-monkey { display: block; width: 140px; height: 152px; object-fit: contain; margin: 0 auto 6px; }
+
+    @media (min-width: 701px) {
+      .menu-card { border-radius: 28px; height: 100dvh; max-height: 100dvh; }
+    }
+    @media (max-width: 700px) {
+      .page { padding: 0; }
+      .stage-frame { width: 100vw; height: 100dvh; border-radius: 0; box-shadow: none; }
+      .menu-secondary { width: 44px; padding: 7px; font-size: 20px; }
+      .menu-secondary .sound-label { display: none; }
+    }
+    @media (max-height: 620px) {
+    .hud-equation { bottom: calc(52px + var(--safe-b)); padding: 6px 12px 8px; }
+    .equation { font-size: clamp(40px, 12vw, 52px); }
+    .feedback-toast { bottom: calc(104px + var(--safe-b)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="stage-frame">
+      <header class="topbar">
+        <div class="brand"><div class="brand-mark" aria-hidden="true">🐒</div><strong>Мавпячий Стрибок</strong></div>
+        <div class="toolbar"><button class="help" id="helpButton" type="button">Як грати?</button></div>
+      </header>
+
+      <section class="jungle" id="jungle" aria-label="Ігрове поле: обери платформу з правильною відповіддю">
+        <div class="camera-world" id="cameraWorld">
+          <div class="scrolling-background" aria-hidden="true"></div>
+          <div class="leaf leaf-a"></div><div class="leaf leaf-b"></div><div class="leaf leaf-c"></div><div class="leaf leaf-d"></div><div class="leaf leaf-e"></div><div class="leaf leaf-f"></div>
+          <div class="starting-platform" aria-label="Стартова платформа"></div>
+          <div class="bot bot-a" data-bot="0" aria-hidden="true"><span class="bot-avatar">🦊</span><span class="bot-name">Лисичка</span></div>
+          <div class="bot bot-b" data-bot="1" aria-hidden="true"><span class="bot-avatar">🐼</span><span class="bot-name">Панда</span></div>
+          <div class="bot bot-c" data-bot="2" aria-hidden="true"><span class="bot-avatar">🐸</span><span class="bot-name">Жабка</span></div>
+          <div class="monkey" id="monkey" aria-hidden="true">
+            <img class="monkey-sprite monkey-sit active" id="monkeySit" src="assets/monkey-sit.png" alt="">
+            <img class="monkey-sprite monkey-jump" id="monkeyJump" src="assets/monkey-jump.png" alt="">
+            <img class="monkey-sprite monkey-banana" id="monkeyBanana" src="assets/monkey_with-banana.png" alt="">
+            <img class="monkey-sprite monkey-hide" id="monkeyHideSprite" src="assets/monkey-hide.png" alt="">
+          </div>
+        </div>
+      </section>
+
+      <div class="hud-stats" id="hudStats">
+        <span class="hud-chip" id="hudScore">🍌 0</span>
+        <span class="hud-chip" id="hudRound">1 / 20</span>
+        <span class="hud-chip" id="hudLives">♥ ♥ ♥</span>
+      </div>
+      <div class="hud-equation" id="hudEquation">
+        <div class="equation" id="equation">— × —</div>
+      </div>
+      <div class="feedback-toast" id="feedbackToast"></div>
+    </div>
+  </main>
+
+  <div class="overlay" id="startMenu"><div class="menu-card" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+    <img class="menu-monkey" src="assets/monkey-menu.png" alt="Мавпочка на старті">
+    <h2 id="menuTitle">Мавпячий Стрибок</h2>
+    <p>Ти в грі разом з іншими гравцями. Обирай правильні платформи швидше за суперників!</p>
+    <h3 class="lobby-title">Гравці в грі</h3>
+    <div class="lobby-players" aria-label="Гравці в грі">
+      <div class="lobby-player"><span class="lobby-avatar">🦊</span><strong>Лисичка</strong></div>
+      <div class="lobby-player"><span class="lobby-avatar">🐼</span><strong>Панда</strong></div>
+      <div class="lobby-player"><span class="lobby-avatar">🐸</span><strong>Жабка</strong></div>
+    </div>
+    <h3 class="mode-title">Режим гри</h3>
+    <div class="mode-grid" id="modeGrid">
+      <button class="mode-button" type="button" data-mode="addition"><span>＋</span><small>Додавання</small></button>
+      <button class="mode-button" type="button" data-mode="subtraction"><span>−</span><small>Віднімання</small></button>
+      <button class="mode-button selected" type="button" data-mode="multiplication"><span>×</span><small>Множення</small></button>
+      <button class="mode-button" type="button" data-mode="division"><span>÷</span><small>Ділення</small></button>
+    </div>
+    <p class="mode-note" id="modeNote">Множення: обчисли добуток двох чисел.</p>
+    <div class="rules"><strong>Правила гри</strong>Розв'яжи 20 прикладів. Усі платформи маршруту видно наперед — на кожному рівні обирай одну з 2 платформ-відповідей, і мавпочка застрибне туди. Майбутні та попередні платформи не натискаються. Правильна відповідь додає 10 балів. Три помилки завершують гру. Кожні 3 правильні відповіді поспіль — банан у нагороду!</div>
+    <div class="menu-actions"><button class="primary" id="menuPlay" type="button">Старт</button><p class="countdown" id="countdown" aria-live="polite"></p><button class="menu-secondary" id="menuSound" type="button" aria-label="Увімкнути звук">🔇 <span class="sound-label">Увімкнути звук</span></button></div>
+  </div></div>
+
+  <div class="overlay" id="helpModal" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="emoji">🍌</div><h2 id="helpTitle">Як грати?</h2><p>Вибери режим у головному меню. У нижній панелі з'явиться приклад, а на екрані — платформи з варіантами відповідей. Торкнись платформи з правильним числом, і мавпочка застрибне на неї.</p><button class="primary" id="closeHelp" type="button">До меню</button></div></div>
+  <div class="overlay" id="endModal" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="endTitle"><img class="win-monkey" id="winMonkey" src="assets/monkey-win.png" alt="Мавпочка перемогла"><h2 id="endTitle">Пригода завершена!</h2><p id="endText"></p><button class="primary" id="restartButton" type="button">Зіграти ще раз</button></div></div>
+
+  <script>
+    (() => {
+      const totalRounds = 20;
+      // Keep the starting platform untouched. Answer rows use fixed world-space
+      // positions so the first jump is short and every following row is consistent.
+      const levelBottoms = Array.from({ length: totalRounds + 1 }, (_, level) => `${4 + level * 3.2}%`);
+      const answerRowStart = 680;
+      const answerRowStep = 260;
+      // Two answers are arranged side by side for each level.
+      const slotLefts = ["28%", "72%"];
+      const platformRowOffsets = ["0%", "0%"];
+
+      function getPlatformBottom(round, slot) {
+        return `${answerRowStart + (round - 1) * answerRowStep}px`;
+      }
+
+      function getCharacterBottom(platformBottom) {
+        return `calc(${platformBottom} + clamp(10px, 2.5vw, 14px))`;
+      }
+
+      const state = {
+        round: 0, score: 0, lives: 3, answer: null,
+        active: false, locked: false, soundOn: false,
+        questions: [], mode: "multiplication", streak: 0,
+        currentLeft: "50%", choiceEls: [], currentChoiceEls: [], botRounds: [0, 0, 0],
+        botSlots: [], botTimers: [], gameId: 0, lastQuestionSignature: "", countdownTimer: null
+      };
+      let audioContext;
+      let toastTimer = null;
+
+      const $ = (id) => document.getElementById(id);
+      const equation = $("equation");
+      const jungle = $("jungle");
+      const cameraWorld = $("cameraWorld");
+      const monkey = $("monkey");
+      const monkeySit = $("monkeySit");
+      const monkeyJump = $("monkeyJump");
+      const monkeyBanana = $("monkeyBanana");
+      const monkeyHideSprite = $("monkeyHideSprite");
+      const startMenu = $("startMenu");
+      const modeNote = $("modeNote");
+      const feedbackToast = $("feedbackToast");
+      const countdown = $("countdown");
+      const allMonkeySprites = [monkeySit, monkeyJump, monkeyBanana, monkeyHideSprite];
+      const bots = [...document.querySelectorAll(".bot")];
+
+      const modeConfig = {
+        multiplication: { title: "Множення", note: "обчисли добуток двох чисел" },
+        addition: { title: "Додавання", note: "знайди суму двох чисел" },
+        subtraction: { title: "Віднімання", note: "знайди різницю двох чисел" },
+        division: { title: "Ділення", note: "поділи число без остачі" }
+      };
+
+      function makeQuestions() {
+        const questions = [];
+        const usedEquations = new Set();
+        let guard = 0;
+        while (questions.length < totalRounds && guard < 5000) {
+          guard += 1;
+          const left = Math.floor(Math.random() * 8) + 2;
+          const right = Math.floor(Math.random() * 8) + 2;
+          let text, answer;
+          if (state.mode === "addition") { answer = left + right; text = `${left} + ${right}`; }
+          if (state.mode === "subtraction") { const high = Math.max(left, right); const low = Math.min(left, right); answer = high - low; text = `${high} − ${low}`; }
+          if (state.mode === "multiplication") { answer = left * right; text = `${left} × ${right}`; }
+          if (state.mode === "division") { const divisor = Math.floor(Math.random() * 7) + 2; const quotient = Math.floor(Math.random() * 8) + 2; answer = quotient; text = `${divisor * quotient} ÷ ${divisor}`; }
+          if (text === undefined) continue;
+          if (usedEquations.has(text)) continue;
+          usedEquations.add(text);
+          questions.push({ text, answer });
+        }
+        while (questions.length < totalRounds) {
+          const left = Math.floor(Math.random() * 8) + 2;
+          const right = Math.floor(Math.random() * 8) + 2;
+          questions.push({ text: `${left} × ${right}`, answer: left * right });
+        }
+        return questions;
+      }
+
+      function shuffle(items) {
+        return [...items].sort(() => Math.random() - 0.5);
+      }
+
+      function makeChoices(correct) {
+        const choices = new Set([correct]);
+        let guard = 0;
+        while (choices.size < 2 && guard < 200) {
+          guard += 1;
+          const offset = Math.floor(Math.random() * 9) - 4;
+          if (correct + offset > 0 && offset !== 0) choices.add(correct + offset);
+        }
+        while (choices.size < 2) choices.add(correct + choices.size + 1);
+        return shuffle([...choices]);
+      }
+
+      function updateCamera() {
+        const viewport = jungle.getBoundingClientRect();
+        const worldTop = viewport.top;
+        const monkeyStyle = getComputedStyle(monkey);
+        const monkeyBottomInWorld = cameraWorld.clientHeight - parseFloat(monkeyStyle.bottom);
+        const safeMonkeyBottom = viewport.bottom - Math.max(
+          state.round > 0 ? 200 : 140,
+          viewport.height * 0.16
+        );
+        const startTransform = safeMonkeyBottom - worldTop - monkeyBottomInWorld;
+        if (state.round === 0) {
+          cameraWorld.style.transform = `translateY(${Math.round(startTransform)}px)`;
+          return;
+        }
+        const targetTransform = safeMonkeyBottom - worldTop - monkeyBottomInWorld;
+        cameraWorld.style.transform = `translateY(${Math.max(Math.round(targetTransform), Math.round(startTransform))}px)`;
+      }
+
+      const spriteByMode = { idle: monkeySit, jump: monkeyJump, hide: monkeyHideSprite, banana: monkeyBanana };
+
+      function showMonkeySprite(mode) {
+        const target = spriteByMode[mode] || monkeySit;
+        allMonkeySprites.forEach((image) => {
+          image.classList.toggle("active", image === target && image.dataset.broken !== "1");
+        });
+      }
+
+      allMonkeySprites.forEach((image) => {
+        image.addEventListener("error", () => {
+          // If a sprite fails to load, fall back to the sitting sprite so the monkey is never invisible.
+          image.dataset.broken = "1";
+          image.classList.remove("active");
+          if (image !== monkeySit) monkeySit.classList.add("active");
+        });
+      });
+      showMonkeySprite("idle");
+
+      function collectBanana() {
+        showMonkeySprite("banana");
+        setTimeout(() => { if (state.active) showMonkeySprite("idle"); }, 750);
+      }
+
+      function playSound(type) {
+        if (!state.soundOn) return;
+        try {
+          audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+          const notes = type === "correct" ? [523, 659, 784] : type === "wrong" ? [180, 130] : type === "finish" ? [392, 523, 659, 784] : [330, 440];
+          const now = audioContext.currentTime;
+          notes.forEach((frequency, index) => {
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            oscillator.type = type === "wrong" ? "sawtooth" : "sine";
+            oscillator.frequency.value = frequency;
+            gain.gain.setValueAtTime(.0001, now + index * .09);
+            gain.gain.exponentialRampToValueAtTime(.12, now + index * .09 + .015);
+            gain.gain.exponentialRampToValueAtTime(.0001, now + index * .09 + .16);
+            oscillator.connect(gain).connect(audioContext.destination);
+            oscillator.start(now + index * .09);
+            oscillator.stop(now + index * .09 + .17);
+          });
+        } catch (err) { /* audio not available — ignore silently */ }
+      }
+
+      const stageFrame = document.querySelector(".stage-frame");
+      const confettiEmoji = ["🍌", "🎉", "⭐", "✨"];
+      function burstConfetti(count = 10) {
+        for (let i = 0; i < count; i += 1) {
+          const piece = document.createElement("span");
+          piece.className = "confetti-piece";
+          piece.textContent = confettiEmoji[Math.floor(Math.random() * confettiEmoji.length)];
+          piece.style.left = `${5 + Math.random() * 90}%`;
+          const duration = 0.9 + Math.random() * 0.6;
+          piece.style.animationDuration = `${duration}s`;
+          piece.style.fontSize = `${14 + Math.random() * 12}px`;
+          stageFrame.appendChild(piece);
+          setTimeout(() => piece.remove(), duration * 1000 + 50);
+        }
+      }
+
+      function showToast(text) {
+        feedbackToast.textContent = text;
+        feedbackToast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => feedbackToast.classList.remove("show"), 900);
+      }
+
+      function updateHud() {
+        state.score = state.round * 10;
+        $("hudScore").textContent = `🍌 ${state.score}`;
+        $("hudLives").textContent = `${"♥ ".repeat(Math.max(state.lives, 0))}${"♡ ".repeat(3 - Math.max(state.lives, 0))}`.trim();
+        $("hudRound").textContent = `${Math.min(state.round + 1, totalRounds)} / ${totalRounds}`;
+      }
+
+      function clearChoicePlatforms() {
+        state.choiceEls.forEach((el) => el.remove());
+        state.choiceEls = [];
+        state.currentChoiceEls = [];
+      }
+
+      function resetGameVisualState() {
+        document.body.classList.remove("game-over");
+        monkey.style.display = "";
+        monkey.style.left = "50%";
+        monkey.style.bottom = `calc(${levelBottoms[0]} + 54px)`;
+        monkey.classList.remove("jump");
+        const startPlatform = document.querySelector(".starting-platform");
+        startPlatform.style.display = "";
+        showMonkeySprite("idle");
+        cameraWorld.style.transition = "none";
+        cameraWorld.style.transform = "translateY(-7800px)";
+        void cameraWorld.offsetWidth;
+        cameraWorld.style.transition = "";
+      }
+
+      const startBotLefts = ["20%", "38%", "62%"];
+
+      function updateBots() {
+        bots.forEach((bot, index) => {
+          const botRound = state.botRounds[index];
+          const slot = botRound === 0 ? null : state.botSlots[index][botRound - 1];
+          bot.style.left = slot === null ? startBotLefts[index] : slotLefts[slot];
+          bot.style.bottom = botRound === 0
+            ? `calc(${levelBottoms[botRound]} + 6px)`
+            : getCharacterBottom(getPlatformBottom(botRound, slot));
+          bot.classList.toggle("waiting", botRound === 0);
+          bot.classList.remove("jump");
+          if (botRound > 0) {
+            void bot.offsetWidth;
+            bot.classList.add("jump");
+          }
+        });
+      }
+
+      function stopBots() {
+        state.botTimers.forEach((timer) => clearTimeout(timer));
+        state.botTimers = [];
+      }
+
+      function moveBot(index) {
+        if (!state.active || state.botRounds[index] >= totalRounds) return;
+        state.botRounds[index] += 1;
+        updateBots();
+        if (state.botRounds[index] < totalRounds) {
+          const delay = 3200 + Math.random() * 2200 + index * 500;
+          state.botTimers[index] = setTimeout(() => moveBot(index), delay);
+        }
+      }
+
+      function startBots() {
+        stopBots();
+        bots.forEach((_, index) => {
+          const delay = 2500 + index * 700 + Math.random() * 1200;
+          state.botTimers[index] = setTimeout(() => moveBot(index), delay);
+        });
+      }
+
+      function placeMonkeyAt(left, bottom, animate) {
+        monkey.style.left = left;
+        monkey.style.bottom = animate ? getCharacterBottom(bottom) : `calc(${bottom} + 54px)`;
+        state.currentLeft = left;
+        if (animate) {
+          showMonkeySprite("jump");
+          monkey.classList.remove("jump");
+          void monkey.offsetWidth;
+          monkey.classList.add("jump");
+        }
+        updateCamera();
+      }
+
+      function resetCameraToStart() {
+        cameraWorld.style.transition = "none";
+        updateCamera();
+        void cameraWorld.offsetWidth;
+        cameraWorld.style.transition = "";
+      }
+
+      function nextQuestion() {
+        if (state.round >= totalRounds) { finishGame(); return; }
+        state.locked = false;
+        const question = state.questions[state.round];
+        state.answer = question.answer;
+        equation.textContent = question.text;
+        state.currentChoiceEls = state.choiceEls.filter((el) => Number(el.dataset.round) === state.round);
+        state.choiceEls.forEach((el) => {
+          const platformRound = Number(el.dataset.round);
+          el.classList.toggle("past", platformRound < state.round);
+          el.classList.toggle("future", platformRound > state.round);
+          el.classList.remove("hidden");
+          el.classList.toggle("disabled", platformRound !== state.round);
+          el.disabled = platformRound !== state.round;
+        });
+
+        updateHud();
+        updateCamera();
+      }
+
+      function renderChoicePlatforms() {
+        clearChoicePlatforms();
+        state.questions.forEach((question, round) => {
+          question.choices = makeChoices(question.answer);
+          question.choices.forEach((choice, index) => {
+            const el = document.createElement("button");
+            el.type = "button";
+            el.className = "platform-base choice-platform future";
+            el.disabled = true;
+            el.dataset.round = String(round);
+            el.classList.add(`variant-${index}`);
+            if (round === totalRounds - 1) el.classList.add("final-level");
+            el.style.left = slotLefts[index];
+            el.dataset.platformBottom = getPlatformBottom(round + 1, index);
+            el.style.bottom = el.dataset.platformBottom;
+            el.style.animationDelay = `${(round * 4 + index) * 0.02}s`;
+            el.textContent = choice;
+            el.setAttribute("aria-label", `Рівень ${round + 1}, відповідь ${choice}`);
+            el.addEventListener("click", () => chooseAnswer(el, choice, slotLefts[index]));
+            cameraWorld.appendChild(el);
+            state.choiceEls.push(el);
+          });
+        });
+      }
+
+      function chooseAnswer(el, choice, left) {
+        if (!state.active || state.locked) return;
+        state.locked = true;
+        state.currentChoiceEls.forEach((item) => item.classList.add("disabled"));
+
+        if (choice === state.answer) {
+          el.classList.add("correct");
+          state.currentChoiceEls.forEach((item) => item.classList.add("past"));
+          state.score += 10;
+          state.round += 1;
+          state.streak += 1;
+          playSound("correct");
+          burstConfetti(state.streak >= 2 ? 16 : 8);
+          showToast(state.streak >= 2 ? `Чудово! 🎉 Серія ×${state.streak}` : "Чудово! 🎉");
+          placeMonkeyAt(left, el.dataset.platformBottom, true);
+          if (state.streak >= 3) { collectBanana(); state.streak = 0; }
+          updateHud();
+          const gameId = state.gameId;
+          setTimeout(() => {
+            if (!state.active || gameId !== state.gameId) return;
+            showMonkeySprite("idle");
+            nextQuestion();
+          }, 760);
+        } else {
+          el.classList.add("wrong");
+          state.lives -= 1;
+          state.streak = 0;
+          playSound("wrong");
+          showMonkeySprite("hide");
+          showToast(state.lives > 0 ? "Спробуй ще раз!" : "Сердечка закінчилися");
+          updateHud();
+          if (state.lives <= 0) {
+            const gameId = state.gameId;
+            setTimeout(() => {
+              if (gameId === state.gameId) finishGame(true);
+            }, 700);
+          } else {
+            const gameId = state.gameId;
+            setTimeout(() => {
+              if (!state.active || gameId !== state.gameId) return;
+              showMonkeySprite("idle");
+              state.locked = false;
+              state.currentChoiceEls.forEach((item) => {
+                item.classList.remove("disabled", "wrong");
+                item.disabled = false;
+              });
+            }, 700);
+          }
+        }
+      }
+
+      document.querySelectorAll(".mode-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.mode = button.dataset.mode;
+          document.querySelectorAll(".mode-button").forEach((item) => item.classList.toggle("selected", item === button));
+          modeNote.textContent = `${modeConfig[state.mode].title}: ${modeConfig[state.mode].note}.`;
+        });
+      });
+
+      function startGame() {
+        stopBots();
+        resetGameVisualState();
+        state.gameId += 1;
+        state.round = 0; state.score = 0; state.lives = 3; state.active = true;
+        state.locked = false; state.streak = 0; state.currentLeft = "50%";
+        state.botRounds = [0, 0, 0];
+        state.botSlots = bots.map(() => Array.from({ length: totalRounds }, () => Math.floor(Math.random() * slotLefts.length)));
+        let questions;
+        let signature;
+        do {
+          questions = makeQuestions();
+          signature = questions.map((question) => question.text).join("|");
+        } while (signature === state.lastQuestionSignature);
+        state.questions = questions;
+        state.lastQuestionSignature = signature;
+        renderChoicePlatforms();
+        document.body.classList.add("playing");
+        startMenu.hidden = true;
+        $("endModal").hidden = true;
+        $("helpModal").hidden = true;
+        feedbackToast.classList.remove("show");
+        clearTimeout(toastTimer);
+        playSound("start");
+
+        placeMonkeyAt("50%", levelBottoms[0], false);
+        resetCameraToStart();
+        showMonkeySprite("idle");
+        monkey.classList.remove("jump");
+        updateBots();
+        startBots();
+        updateHud();
+        nextQuestion();
+        resetCameraToStart();
+        requestAnimationFrame(() => {
+          if (state.active) updateCamera();
+        });
+      }
+
+      function finishGame(outOfLives = false) {
+        state.active = false;
+        state.gameId += 1;
+        stopBots();
+        clearChoicePlatforms();
+        document.body.classList.remove("playing");
+        document.body.classList.toggle("game-over", outOfLives);
+        playSound(outOfLives ? "wrong" : "finish");
+        if (!outOfLives) burstConfetti(26);
+        $("winMonkey").hidden = outOfLives;
+        $("endTitle").textContent = outOfLives ? "Спробуємо ще раз?" : "Ти дістався верхівки!";
+        const botLeader = Math.max(...state.botRounds);
+        $("endText").textContent = outOfLives
+          ? `Рахунок: ${state.score}. Гравці дісталися рівня ${botLeader} з ${totalRounds}. Кожна спроба робить тебе уважнішим.`
+          : `Рахунок: ${state.score} з ${totalRounds * 10}. Ти випередив суперників на ${Math.max(0, state.round - botLeader)} рівнів!`;
+        $("endModal").hidden = false;
+        $("endModal").classList.toggle("game-over", outOfLives);
+      }
+
+      function toggleSound() {
+        state.soundOn = !state.soundOn;
+        const menuButton = $("menuSound");
+        menuButton.innerHTML = state.soundOn
+          ? '🔊 <span class="sound-label">Вимкнути звук</span>'
+          : '🔇 <span class="sound-label">Увімкнути звук</span>';
+        menuButton.setAttribute("aria-pressed", String(state.soundOn));
+        menuButton.setAttribute("aria-label", state.soundOn ? "Вимкнути звук" : "Увімкнути звук");
+        if (state.soundOn) playSound("start");
+      }
+
+      function beginCountdown() {
+        if (state.countdownTimer) return;
+        const button = $("menuPlay");
+        button.disabled = true;
+        let seconds = 5;
+        countdown.textContent = `Починаємо через ${seconds}...`;
+        state.countdownTimer = setInterval(() => {
+          seconds -= 1;
+          if (seconds > 0) {
+            countdown.textContent = `Починаємо через ${seconds}...`;
+            return;
+          }
+          clearInterval(state.countdownTimer);
+          state.countdownTimer = null;
+          countdown.textContent = "Старт!";
+          button.disabled = false;
+          startGame();
+        }, 1000);
+      }
+      $("menuPlay").addEventListener("click", beginCountdown);
+      $("menuSound").addEventListener("click", toggleSound);
+      $("restartButton").addEventListener("click", (event) => {
+        event.preventDefault();
+        if (state.countdownTimer) {
+          clearInterval(state.countdownTimer);
+          state.countdownTimer = null;
+        }
+        $("endModal").hidden = true;
+        $("endModal").classList.remove("game-over");
+        document.body.classList.remove("game-over");
+        startMenu.hidden = false;
+        $("menuPlay").disabled = false;
+        countdown.textContent = "";
+        resetGameVisualState();
+      });
+      $("helpButton").addEventListener("click", () => { $("helpModal").hidden = false; });
+      $("closeHelp").addEventListener("click", () => { $("helpModal").hidden = true; });
+      [$("helpModal"), $("endModal")].forEach((modal) => modal.addEventListener("click", (event) => { if (event.target === modal) modal.hidden = true; }));
+      window.addEventListener("resize", () => { if (state.active) updateCamera(); });
+
+      updateHud();
+    })();
+  </script>
+</body>
+</html>
